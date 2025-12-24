@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![AdVision Banner](https://via.placeholder.com/1200x300/3a3440/ffffff?text=AdVision+-+AI-Powered+Advertisement+Management)
+<!-- ![AdVision Banner](https://via.placeholder.com/1200x300/3a3440/ffffff?text=AdVision+-+AI-Powered+Advertisement+Management)  -->
 
 **Transform Your Advertising with AI-Powered Intelligence**
 
@@ -11,7 +11,7 @@
 [![React](https://img.shields.io/badge/React-18.3-61dafb?style=for-the-badge&logo=react&logoColor=white)](https://reactjs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
-[🚀 Live Demo](https://advision.vercel.app) • [🐛 Report Bug](https://github.com/yourusername/advision/issues) • [✨ Request Feature](https://github.com/yourusername/advision/issues)
+<!-- [🚀 Live Demo](https://advision.vercel.app) • [🐛 Report Bug](https://github.com/yourusername/advision/issues) • [✨ Request Feature](https://github.com/yourusername/advision/issues)  -->
 
 </div>
 
