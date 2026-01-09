@@ -1,4 +1,4 @@
-// frontend/src/components/GoogleLoginButton.jsx
+// frontend/src/components/GoogleLoginButton.jsx - TRY ORIGIN ONLY
 import React from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
@@ -8,15 +8,22 @@ import toast from 'react-hot-toast';
 export default function GoogleLoginButton() {
   const navigate = useNavigate();
 
+  // Try using just the origin (no path)
+  const redirectUri = window.location.origin; // Just http://localhost:5173
+
   const handleLogin = async (googleResponse) => {
     const toastId = toast.loading('Logging in with Google...');
     try {
-      // Send the authorization code to backend
-      const res = await apiClient.post('/auth/google/', {
-        code: googleResponse.code,
+      console.log('🔐 Sending to backend:', {
+        code: googleResponse.code.substring(0, 20) + '...',
+        redirect_uri: redirectUri
       });
 
-      // Store the JWT tokens
+      const res = await apiClient.post('/auth/google/', {
+        code: googleResponse.code,
+        redirect_uri: redirectUri,
+      });
+
       localStorage.setItem('access_token', res.data.access);
       localStorage.setItem('refresh_token', res.data.refresh);
       
@@ -24,8 +31,9 @@ export default function GoogleLoginButton() {
       navigate('/app/dashboard');
 
     } catch (err) {
-      console.error('Google login error:', err.response?.data || err);
+      console.error('❌ Google login error:', err.response?.data || err);
       const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.details?.error_description ||
                           err.response?.data?.non_field_errors?.[0] || 
                           'Google login failed. Please try again.';
       toast.error(errorMessage, { id: toastId });
@@ -35,12 +43,10 @@ export default function GoogleLoginButton() {
   const login = useGoogleLogin({
     onSuccess: handleLogin,
     onError: (err) => {
-      console.error('Google OAuth error:', err);
+      console.error('❌ Google OAuth error:', err);
       toast.error('Google login failed. Please try again.');
     },
     flow: 'auth-code',
-    // The redirect URI is handled automatically by @react-oauth/google
-    // It uses the current origin (works for both localhost and production)
   });
 
   return (

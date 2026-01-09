@@ -1,46 +1,16 @@
 // frontend/src/pages/RegisterPage.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export default function RegisterPage() {
-  const unicornRef = useRef(null);
   const [email, setEmail] = useState("");
   const [password1, setPassword1] = useState("");
   const [password2, setPassword2] = useState("");
   const navigate = useNavigate();
-
-  // 🌀 Initialize Unicorn background instantly (no loader)
-  useEffect(() => {
-    const wrapper = unicornRef.current;
-    if (wrapper && !wrapper.querySelector("[data-us-project]")) {
-      const projectDiv = document.createElement("div");
-      projectDiv.setAttribute("data-us-project", "p4VdxnnHjOL82ic0CzsJ");
-      Object.assign(projectDiv.style, {
-        position: "absolute",
-        top: "0",
-        left: "0",
-        width: "100vw",
-        height: "100vh",
-        overflow: "hidden",
-        margin: "0",
-        padding: "0",
-      });
-      wrapper.appendChild(projectDiv);
-
-      const script = document.createElement("script");
-      script.src =
-        "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.34/dist/unicornStudio.umd.js";
-      script.onload = () => {
-        if (!window.UnicornStudio?.isInitialized) {
-          window.UnicornStudio = { isInitialized: true };
-          window.UnicornStudio.init?.();
-        }
-      };
-      (document.head || document.body).appendChild(script);
-    }
-  }, []);
 
   // ✨ Register Logic
   const handleSubmit = async (e) => {
@@ -58,10 +28,11 @@ export default function RegisterPage() {
 
     const toastId = toast.loading("Creating account...");
     try {
-      const response = await axios.post(
-        "http://localhost:8000/api/auth/registration/",
-        { email, password1, password2 }
-      );
+      const response = await axios.post(`${API_URL}/auth/registration/`, {
+        email,
+        password1,
+        password2,
+      });
 
       if (response.data.access && response.data.refresh) {
         localStorage.setItem("access_token", response.data.access);
@@ -90,27 +61,10 @@ export default function RegisterPage() {
     <div
       className="relative w-screen h-screen text-white flex flex-col items-center justify-center"
       style={{
-        overflow: "hidden", // ✅ disables both scrollbars
+        overflow: "hidden",
         overscrollBehavior: "none",
       }}
     >
-      {/* 🌀 Unicorn Studio Background */}
-      <div
-        ref={unicornRef}
-        className="absolute inset-0 w-full h-full"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          overflow: "hidden",
-          margin: 0,
-          padding: 0,
-          zIndex: 0,
-        }}
-      ></div>
-
       {/* 🌐 Navbar */}
       <header
         className="absolute top-0 left-0 right-0 z-20 flex justify-between items-center px-9 py-3
@@ -165,7 +119,9 @@ export default function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your.email@example.com"
               required
-              className="w-full px-3 py-2 bg-black/40 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#a88fd8] text-white placeholder-gray-400 text-sm"
+              className="w-full px-3 py-2 bg-black/40 border border-gray-600 rounded-lg 
+                         focus:outline-none focus:ring-2 focus:ring-[#a88fd8] text-white 
+                         placeholder-gray-400 text-sm"
             />
           </div>
 
@@ -181,11 +137,11 @@ export default function RegisterPage() {
               placeholder="••••••••"
               minLength={8}
               required
-              className="w-full px-3 py-2 bg-black/40 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#a88fd8] text-white placeholder-gray-400 text-sm"
+              className="w-full px-3 py-2 bg-black/40 border border-gray-600 rounded-lg 
+                         focus:outline-none focus:ring-2 focus:ring-[#a88fd8] text-white 
+                         placeholder-gray-400 text-sm"
             />
-            <p className="text-xs text-gray-400 mt-1">
-              Must be at least 8 characters
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Must be at least 8 characters</p>
           </div>
 
           {/* Confirm Password */}
@@ -200,7 +156,9 @@ export default function RegisterPage() {
               placeholder="••••••••"
               minLength={8}
               required
-              className="w-full px-3 py-2 bg-black/40 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#a88fd8] text-white placeholder-gray-400 text-sm"
+              className="w-full px-3 py-2 bg-black/40 border border-gray-600 rounded-lg 
+                         focus:outline-none focus:ring-2 focus:ring-[#a88fd8] text-white 
+                         placeholder-gray-400 text-sm"
             />
           </div>
 

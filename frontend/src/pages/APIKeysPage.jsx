@@ -2,6 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import toast from 'react-hot-toast';
+import {
+  Search,
+  Book,
+  Camera,
+  Music,
+  Briefcase,
+  Key,
+  KeyRound,
+  CheckCircle,
+  Zap,
+  Trash2,
+  Lock
+} from "lucide-react";
+
 
 export default function APIKeysPage() {
   const [apiKeys, setApiKeys] = useState([]);
@@ -103,14 +117,15 @@ export default function APIKeysPage() {
 
   const getAPITypeInfo = (type) => {
     const info = {
-      google_ads: { name: 'Google Ads', icon: '🔍', color: '#4285F4' },
-      facebook_ads: { name: 'Facebook Ads', icon: '📘', color: '#1877F2' },
-      instagram_ads: { name: 'Instagram Ads', icon: '📸', color: '#E4405F' },
-      tiktok_ads: { name: 'TikTok Ads', icon: '🎵', color: '#000000' },
-      linkedin_ads: { name: 'LinkedIn Ads', icon: '💼', color: '#0A66C2' },
+      google_ads: { name: "Google Ads", icon: <Search />, color: "#4285F4" },
+      facebook_ads: { name: "Facebook Ads", icon: <Book />, color: "#1877F2" },
+      instagram_ads: { name: "Instagram Ads", icon: <Camera />, color: "#E4405F" },
+      tiktok_ads: { name: "TikTok Ads", icon: <Music />, color: "#000000" },
+      linkedin_ads: { name: "LinkedIn Ads", icon: <Briefcase />, color: "#0A66C2" },
     };
-    return info[type] || { name: type, icon: '🔑', color: '#a88fd8' };
+    return info[type] || { name: type, icon: <Key />, color: "#a88fd8" };
   };
+
 
   if (isLoading) {
     return (
@@ -122,11 +137,12 @@ export default function APIKeysPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0c12] via-[#16111d] to-[#0d0b11] text-white px-4 md:px-6 py-10">
-      
+
       {/* Header Responsive */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-10 gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-wide">
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-wide flex items-center gap-2">
+            <Lock className="w-7 h-7 text-[#a88fd8]" />
             API Key Management
           </h1>
           <p className="text-gray-400 mt-1 text-sm md:text-base">
@@ -154,8 +170,13 @@ export default function APIKeysPage() {
       {/* API Keys List */}
       {apiKeys.length === 0 ? (
         <div className="text-center py-16 bg-black/40 border border-white/10 rounded-xl backdrop-blur-md px-4">
-          <div className="text-5xl mb-4">🔑</div>
-          <h3 className="text-lg font-medium text-gray-300">No API Keys Added Yet</h3>
+          <div className="text-5xl mb-4">
+          </div>
+
+          <h3 className="flex items-center justify-center gap-2 text-lg font-medium text-gray-300">
+            <KeyRound className="w-5 h-5 text-[#a88fd8]" />
+            No API Keys Added Yet
+          </h3>
           <p className="text-sm text-gray-500 mb-6">Connect your first API key to start syncing data.</p>
 
           <button
@@ -195,19 +216,17 @@ export default function APIKeysPage() {
                       <p className="text-sm text-gray-400">{typeInfo.name}</p>
 
                       <div className="flex flex-wrap gap-2 mt-2 text-xs">
-                        <span className={`px-2 py-0.5 rounded-full ${
-                          key.verification_status === 'verified'
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-yellow-500/20 text-yellow-300'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-full ${key.verification_status === 'verified'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-yellow-500/20 text-yellow-300'
+                          }`}>
                           {key.verification_status}
                         </span>
 
-                        <span className={`px-2 py-0.5 rounded-full ${
-                          key.is_active
-                            ? 'bg-blue-500/20 text-blue-300'
-                            : 'bg-gray-600/20 text-gray-400'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-full ${key.is_active
+                          ? 'bg-blue-500/20 text-blue-300'
+                          : 'bg-gray-600/20 text-gray-400'
+                          }`}>
                           {key.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </div>
@@ -228,27 +247,28 @@ export default function APIKeysPage() {
                   <div className="flex sm:flex-col gap-2">
                     <button
                       onClick={() => handleVerifyKey(key.id)}
-                      className="p-2 hover:bg-[#a88fd8]/20 rounded-lg transition-all text-lg"
+                      className="p-2 hover:bg-[#a88fd8]/20 rounded-lg transition-all"
                       title="Verify Key"
                     >
-                      ✅
+                      <CheckCircle className="w-5 h-5 text-green-400" />
                     </button>
 
                     <button
                       onClick={() => handleToggleKey(key.id)}
-                      className="p-2 hover:bg-[#a88fd8]/20 rounded-lg transition-all text-lg"
-                      title={key.is_active ? 'Deactivate' : 'Activate'}
+                      className="p-2 hover:bg-[#a88fd8]/20 rounded-lg transition-all"
+                      title={key.is_active ? "Deactivate" : "Activate"}
                     >
-                      ⚡
+                      <Zap className="w-5 h-5 text-yellow-300" />
                     </button>
 
                     <button
                       onClick={() => handleDeleteKey(key.id)}
-                      className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-all text-lg"
+                      className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
                       title="Delete"
                     >
-                      🗑️
+                      <Trash2 className="w-5 h-5 text-red-400" />
                     </button>
+
                   </div>
 
                 </div>

@@ -181,9 +181,13 @@ export default function CampaignsPage() {
                   </button>
                 </div>
 
-                <h2 className="text-xl font-semibold text-[#c4a8ff] mb-2 pr-20">
+                <h2
+                  className="text-xl font-semibold text-[#c4a8ff] mb-2 pr-24 truncate"
+                  title={c.title}
+                >
                   {c.title}
                 </h2>
+
 
                 <p className="text-gray-400 text-sm mb-3 line-clamp-3">
                   {c.description || "No description provided."}
@@ -211,136 +215,136 @@ export default function CampaignsPage() {
       </div>
 
       {/* Modal */}
-{showModal && (
-  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-    <div className="bg-[#1c1624] border border-[#2a2235] 
+      {showModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-[#1c1624] border border-[#2a2235] 
       p-5 sm:p-6 rounded-2xl shadow-2xl 
       w-full max-w-lg relative scale-100">
 
-      {/* Close Button */}
-      <button
-        onClick={() => setShowModal(false)}
-        className="absolute top-3 right-3 text-gray-400 hover:text-white"
-      >
-        <X className="w-6 h-6" />
-      </button>
+            {/* Close Button */}
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-white"
+            >
+              <X className="w-6 h-6" />
+            </button>
 
-      <h2 className="text-xl sm:text-2xl font-semibold text-[#c4a8ff] mb-5">
-        {editingCampaign ? "Edit Campaign" : "Create New Campaign"}
-      </h2>
+            <h2 className="text-xl sm:text-2xl font-semibold text-[#c4a8ff] mb-5">
+              {editingCampaign ? "Edit Campaign" : "Create New Campaign"}
+            </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* Title */}
-        <div>
-          <label className="block text-sm mb-1 text-gray-300">Title</label>
-          <input
-            type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleFormChange}
-            required
-            className="w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
+              {/* Title */}
+              <div>
+                <label className="block text-sm mb-1 text-gray-300">Title</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleFormChange}
+                  required
+                  className="w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
             rounded-md text-white text-base"
-          />
-        </div>
+                />
+              </div>
 
-        {/* Description */}
-        <div>
-          <label className="block text-sm mb-1 text-gray-300">Description</label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleFormChange}
-            rows="3"
-            className="w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
+              {/* Description */}
+              <div>
+                <label className="block text-sm mb-1 text-gray-300">Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleFormChange}
+                  rows="3"
+                  className="w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
             rounded-md text-white text-base"
-          />
-        </div>
+                />
+              </div>
 
-        {/* Platform */}
-        <div>
-          <label className="block text-sm mb-1 text-gray-300">Platform</label>
-          <select
-            name="platform"
-            value={formData.platform}
-            onChange={handleFormChange}
-            className="w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
+              {/* Platform */}
+              <div>
+                <label className="block text-sm mb-1 text-gray-300">Platform</label>
+                <select
+                  name="platform"
+                  value={formData.platform}
+                  onChange={handleFormChange}
+                  className="w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
             rounded-md text-white text-base"
-          >
-            <option value="instagram">Instagram</option>
-            <option value="youtube">YouTube</option>
-            <option value="linkedin">LinkedIn</option>
-            <option value="facebook">Facebook</option>
-            <option value="tiktok">TikTok</option>
-          </select>
-        </div>
+                >
+                  <option value="instagram">Instagram</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="linkedin">LinkedIn</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="tiktok">TikTok</option>
+                </select>
+              </div>
 
-        {/* Date Inputs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm mb-1 text-gray-300">Start Date</label>
-            <input
-              type="date"
-              name="start_date"
-              value={formData.start_date}
-              onChange={handleFormChange}
-              required
-              className="custom-date w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
+              {/* Date Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-1 text-gray-300">Start Date</label>
+                  <input
+                    type="date"
+                    name="start_date"
+                    value={formData.start_date}
+                    onChange={handleFormChange}
+                    required
+                    className="custom-date w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
               rounded-md text-white text-base"
-            />
-          </div>
+                  />
+                </div>
 
-          <div>
-            <label className="block text-sm mb-1 text-gray-300">End Date</label>
-            <input
-              type="date"
-              name="end_date"
-              value={formData.end_date}
-              onChange={handleFormChange}
-              required
-              className="custom-date w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
+                <div>
+                  <label className="block text-sm mb-1 text-gray-300">End Date</label>
+                  <input
+                    type="date"
+                    name="end_date"
+                    value={formData.end_date}
+                    onChange={handleFormChange}
+                    required
+                    className="custom-date w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
               rounded-md text-white text-base"
-            />
-          </div>
-        </div>
+                  />
+                </div>
+              </div>
 
-        {/* Budget */}
-        <div>
-          <label className="block text-sm mb-1 text-gray-300">Budget</label>
-          <input
-            type="number"
-            name="budget"
-            value={formData.budget}
-            onChange={handleFormChange}
-            className="w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
+              {/* Budget */}
+              <div>
+                <label className="block text-sm mb-1 text-gray-300">Budget</label>
+                <input
+                  type="number"
+                  name="budget"
+                  value={formData.budget}
+                  onChange={handleFormChange}
+                  className="w-full px-3 py-2 bg-[#0f0c12] border border-[#2a2235] 
             rounded-md text-white text-base"
-          />
-        </div>
+                />
+              </div>
 
-        {/* Buttons */}
-        <div className="flex justify-end gap-3 pt-1">
-          <button
-            type="button"
-            onClick={() => setShowModal(false)}
-            className="px-4 py-2 bg-gray-700/30 text-gray-300 rounded-lg text-sm"
-          >
-            Cancel
-          </button>
+              {/* Buttons */}
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-gray-700/30 text-gray-300 rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
 
-          <button
-            type="submit"
-            className="px-4 py-2 bg-gradient-to-r from-[#3a3440] 
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-gradient-to-r from-[#3a3440] 
             to-[#a88fd8] text-white rounded-lg text-sm"
-          >
-            {editingCampaign ? "Update" : "Create"}
-          </button>
-        </div>
+                >
+                  {editingCampaign ? "Update" : "Create"}
+                </button>
+              </div>
 
-      </form>
-    </div>
-  </div>
-)}
+            </form>
+          </div>
+        </div>
+      )}
 
 
 

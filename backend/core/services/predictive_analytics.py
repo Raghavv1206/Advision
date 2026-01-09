@@ -1,5 +1,6 @@
 # backend/core/services/predictive_analytics.py
-from datetime import datetime, timedelta
+from datetime import timedelta
+from core.utils.timezone_utils import now
 from decimal import Decimal
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -53,7 +54,7 @@ class PredictiveAnalyticsService:
             model_type='performance',
             defaults={
                 'accuracy': accuracy,
-                'last_trained': datetime.now(),
+                'last_trained': now(),
                 'training_samples': len(analytics),
                 'model_data': {
                     'coefficients': model.coef_.tolist(),
@@ -109,7 +110,7 @@ class PredictiveAnalyticsService:
         # Predict next 7 days
         predictions = []
         start_date = campaign.start_date
-        current_day = (datetime.now().date() - start_date).days
+        current_day = (now().date() - start_date).days
         
         for i in range(1, 8):
             day_num = current_day + i
@@ -120,7 +121,7 @@ class PredictiveAnalyticsService:
             X_pred = np.array([[day_num, avg_impressions, avg_spend]])
             predicted_conversions = int(model.predict(X_pred)[0])
             
-            prediction_date = datetime.now().date() + timedelta(days=i)
+            prediction_date = now().date() + timedelta(days=i)
             
             # Save prediction
             Prediction.objects.create(

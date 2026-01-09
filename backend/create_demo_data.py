@@ -1,11 +1,9 @@
-# demo_setup.py - Run this to setup complete demo data
-# Usage: Get-Content create_demo_data.py | python manage.py shell
+# create_demo_data.py - Run this to setup complete demo data
+# Usage: python create_demo_data.py
 
-# backend/create_demo_data.py - UPDATED WITH COMPREHENSIVE DATA
-
+# backend/create_demo_data.py - COMPLETE WITH ALL FEATURES - TIMEZONE FIXED
 import os
 import django
-from datetime import datetime, timedelta
 from decimal import Decimal
 import random
 
@@ -16,12 +14,16 @@ from django.contrib.auth import get_user_model
 from core.models import (
     Campaign, AdContent, ImageAsset, Comment,
     DailyAnalytics, CampaignAnalyticsSummary,
-    UserAPIKey, ABTest, ABTestVariation
+    UserAPIKey, ABTest, ABTestVariation,
+    PredictiveModel, Prediction, ReportSchedule
 )
+# CRITICAL FIX: Import ALL timezone utilities including datetime_ago
+from core.utils.timezone_utils import now, days_ago, datetime_ago, datetime_from_now
+from datetime import timedelta
 
 User = get_user_model()
 
-print("🎬 Setting up AdVision Demo Environment with REAL DATA...")
+print("🎬 Setting up AdVision Demo Environment with ALL FEATURES...")
 print("=" * 70)
 
 # ============================================================================
@@ -70,6 +72,11 @@ api_keys_data = [
         'api_type': 'instagram_ads',
         'api_name': 'Instagram Business Account',
         'account_id': 'ig_demo_789'
+    },
+    {
+        'api_type': 'linkedin_ads',
+        'api_name': 'LinkedIn Campaign Manager',
+        'account_id': 'li_demo_101'
     }
 ]
 
@@ -83,30 +90,30 @@ for key_data in api_keys_data:
             'developer_token': key_data.get('developer_token', ''),
             'verification_status': 'verified',
             'is_active': True,
-            'last_verified': datetime.now()
+            'last_verified': now()
         }
     )
     
     if created:
         api_key.encrypt_key(f'demo_{key_data["api_type"]}_key_12345')
-        if key_data['api_type'] in ['facebook_ads', 'instagram_ads']:
+        if key_data['api_type'] in ['facebook_ads', 'instagram_ads', 'linkedin_ads']:
             api_key.encrypt_secret(f'demo_{key_data["api_type"]}_secret_67890')
         api_key.save()
         print(f"✅ Created API key: {key_data['api_name']} (verified)")
 
 # ============================================================================
-# 3. CREATE DIVERSE DEMO CAMPAIGNS WITH VARYING PERFORMANCE
+# 3. CREATE DIVERSE DEMO CAMPAIGNS
 # ============================================================================
 print("\n📊 Creating demo campaigns with realistic performance data...")
 
 campaigns_data = [
     {
         'title': 'Summer Sale 2024 - Fashion Collection',
-        'description': 'Promote our summer fashion collection with 30% discount',
+        'description': 'Promote summer fashion collection with 30% discount',
         'platform': 'instagram',
         'budget': 5000,
         'days_ago': 45,
-        'performance_level': 'high'  # High performer
+        'performance_level': 'high'
     },
     {
         'title': 'New Product Launch - Eco Water Bottles',
@@ -114,7 +121,7 @@ campaigns_data = [
         'platform': 'facebook',
         'budget': 8000,
         'days_ago': 38,
-        'performance_level': 'medium'  # Average performer
+        'performance_level': 'medium'
     },
     {
         'title': 'Brand Awareness - Millennial Targeting',
@@ -122,7 +129,7 @@ campaigns_data = [
         'platform': 'youtube',
         'budget': 10000,
         'days_ago': 30,
-        'performance_level': 'high'  # High performer
+        'performance_level': 'high'
     },
     {
         'title': 'Holiday Special - Black Friday Deals',
@@ -130,7 +137,7 @@ campaigns_data = [
         'platform': 'tiktok',
         'budget': 6000,
         'days_ago': 25,
-        'performance_level': 'low'  # Low performer - needs improvement
+        'performance_level': 'low'
     },
     {
         'title': 'LinkedIn B2B Campaign',
@@ -138,7 +145,7 @@ campaigns_data = [
         'platform': 'linkedin',
         'budget': 7500,
         'days_ago': 20,
-        'performance_level': 'medium'  # Average performer
+        'performance_level': 'medium'
     },
     {
         'title': 'Spring Collection Preview',
@@ -146,7 +153,7 @@ campaigns_data = [
         'platform': 'instagram',
         'budget': 4500,
         'days_ago': 15,
-        'performance_level': 'high'  # Recent high performer
+        'performance_level': 'high'
     },
     {
         'title': 'Tech Product Demo Campaign',
@@ -154,15 +161,15 @@ campaigns_data = [
         'platform': 'youtube',
         'budget': 9000,
         'days_ago': 10,
-        'performance_level': 'medium'  # Recent average
+        'performance_level': 'medium'
     }
 ]
 
-today = datetime.now().date()
+today = now().date()
 campaigns = []
 
 for camp_data in campaigns_data:
-    start_date = today - timedelta(days=camp_data['days_ago'])
+    start_date = days_ago(camp_data['days_ago'])
     end_date = today + timedelta(days=30)
     
     campaign, created = Campaign.objects.get_or_create(
@@ -178,7 +185,6 @@ for camp_data in campaigns_data:
         }
     )
     
-    # Store performance level for analytics generation
     campaign.performance_level = camp_data['performance_level']
     campaigns.append(campaign)
     
@@ -186,7 +192,7 @@ for camp_data in campaigns_data:
         print(f"✅ Created campaign: {camp_data['title']} ({camp_data['performance_level']} performer)")
 
 # ============================================================================
-# 4. CREATE VARIED AD CONTENT
+# 4. CREATE VARIED AD CONTENT - NO MANUAL created_at
 # ============================================================================
 print("\n✍️  Creating diverse ad content...")
 
@@ -222,25 +228,24 @@ for campaign in campaigns:
     platform = campaign.platform
     templates = ad_content_templates.get(platform, ad_content_templates['instagram'])
     
-    # Create 3-5 ads per campaign
     num_ads = random.randint(3, 5)
     for i in range(num_ads):
         text = templates[i % len(templates)]
         tone = ['persuasive', 'witty', 'casual', 'formal'][i % 4]
         
-        # Vary performance based on campaign level
         if campaign.performance_level == 'high':
             views = random.randint(15000, 50000)
-            clicks = int(views * random.uniform(0.04, 0.08))  # 4-8% CTR
+            clicks = int(views * random.uniform(0.04, 0.08))
         elif campaign.performance_level == 'medium':
             views = random.randint(8000, 25000)
-            clicks = int(views * random.uniform(0.025, 0.04))  # 2.5-4% CTR
-        else:  # low
+            clicks = int(views * random.uniform(0.025, 0.04))
+        else:
             views = random.randint(3000, 12000)
-            clicks = int(views * random.uniform(0.01, 0.025))  # 1-2.5% CTR
+            clicks = int(views * random.uniform(0.01, 0.025))
         
         conversions = int(clicks * random.uniform(0.05, 0.15))
         
+        # DON'T set created_at - let Django auto-create it
         ad, created = AdContent.objects.get_or_create(
             campaign=campaign,
             text=text,
@@ -257,15 +262,14 @@ for campaign in campaigns:
             print(f"  ✅ Added ad for {campaign.title[:30]}... (CTR: {clicks/views*100:.2f}%)")
 
 # ============================================================================
-# 5. GENERATE REALISTIC ANALYTICS WITH TRENDS
+# 5. GENERATE REALISTIC ANALYTICS (FOR LINEAR REGRESSION)
 # ============================================================================
-print("\n📈 Generating realistic analytics data with performance trends...")
+print("\n📈 Generating analytics data for ML models...")
 
 for campaign in campaigns:
     campaign_age = (today - campaign.start_date).days
     days_to_generate = min(45, campaign_age + 1)
     
-    # Platform-specific multipliers
     platform_multipliers = {
         'instagram': 600, 'facebook': 700, 'youtube': 900,
         'linkedin': 350, 'tiktok': 1200
@@ -273,17 +277,16 @@ for campaign in campaigns:
     
     base_impressions = platform_multipliers.get(campaign.platform, 500)
     
-    # Performance level adjustments
     if campaign.performance_level == 'high':
         base_impressions = int(base_impressions * 1.5)
-        base_ctr = 0.045  # 4.5% base CTR
+        base_ctr = 0.045
         conversion_mult = 1.3
     elif campaign.performance_level == 'medium':
-        base_ctr = 0.03  # 3% base CTR
+        base_ctr = 0.03
         conversion_mult = 1.0
-    else:  # low
+    else:
         base_impressions = int(base_impressions * 0.7)
-        base_ctr = 0.018  # 1.8% base CTR
+        base_ctr = 0.018
         conversion_mult = 0.7
     
     daily_budget = float(campaign.budget) / max(days_to_generate, 1)
@@ -294,38 +297,29 @@ for campaign in campaigns:
         if analytics_date > today or analytics_date < campaign.start_date:
             continue
         
-        # Create realistic trends over time
-        # Early days: lower performance
-        # Middle days: peak performance
-        # Recent days: slight decline or maintenance
-        
+        # Create predictable trends for linear regression
         if day_offset < days_to_generate * 0.3:
-            # Ramp up phase
             growth_factor = 0.6 + (day_offset / (days_to_generate * 0.3)) * 0.4
         elif day_offset < days_to_generate * 0.7:
-            # Peak phase
             growth_factor = 1.0 + random.uniform(-0.1, 0.2)
         else:
-            # Maturity phase
             if campaign.performance_level == 'high':
-                growth_factor = 1.1 + random.uniform(-0.1, 0.1)  # Maintain high
+                growth_factor = 1.1 + random.uniform(-0.1, 0.1)
             elif campaign.performance_level == 'low':
-                growth_factor = 0.8 + random.uniform(-0.15, 0.05)  # Declining
+                growth_factor = 0.8 + random.uniform(-0.15, 0.05)
             else:
-                growth_factor = 0.95 + random.uniform(-0.1, 0.1)  # Slight decline
+                growth_factor = 0.95 + random.uniform(-0.1, 0.1)
         
-        # Day of week effects
         day_of_week = analytics_date.weekday()
-        if day_of_week in [4, 5]:  # Friday, Saturday
+        if day_of_week in [4, 5]:
             day_multiplier = 1.15
-        elif day_of_week in [0, 1]:  # Monday, Tuesday
+        elif day_of_week in [0, 1]:
             day_multiplier = 1.05
         else:
             day_multiplier = 1.0
         
         randomness = random.uniform(0.85, 1.15)
         
-        # Calculate metrics
         impressions = int(base_impressions * growth_factor * day_multiplier * randomness)
         ctr_variance = random.uniform(-0.01, 0.01)
         actual_ctr = max(0.01, base_ctr + ctr_variance)
@@ -347,34 +341,56 @@ for campaign in campaigns:
             }
         )
     
-    # Update summary
     summary, _ = CampaignAnalyticsSummary.objects.get_or_create(campaign=campaign)
     summary.update_metrics()
     
     print(f"  ✅ {campaign.title[:35]}...")
-    print(f"     {summary.total_impressions:,} impressions | {summary.total_clicks:,} clicks | {summary.avg_ctr:.2f}% CTR | Score: {summary.performance_score}/100")
+    print(f"     {summary.total_impressions:,} impressions | Score: {summary.performance_score}/100")
 
 # ============================================================================
-# 6. CREATE MEANINGFUL A/B TESTS
+# 6. CREATE PREDICTIVE MODELS (LINEAR REGRESSION)
 # ============================================================================
-print("\n🧪 Creating A/B test with real data...")
+print("\n🤖 Creating predictive ML models...")
 
-# Test on a high-performing campaign
+trainable_campaigns = [c for c in campaigns if (today - c.start_date).days >= 14]
+
+for campaign in trainable_campaigns[:3]:
+    try:
+        from core.services.predictive_analytics import PredictiveAnalyticsService
+        
+        result = PredictiveAnalyticsService.train_performance_model(str(campaign.id))
+        
+        if result.get('success'):
+            print(f"  ✅ Trained model for: {campaign.title[:35]}...")
+            print(f"     Accuracy: {result['accuracy']*100:.1f}% | Samples: {result['samples']}")
+            
+            pred_result = PredictiveAnalyticsService.predict_next_week(str(campaign.id))
+            if pred_result.get('success'):
+                print(f"     Generated 7-day predictions (confidence: {pred_result['model_accuracy']:.1f}%)")
+        else:
+            print(f"  ⚠️  {campaign.title[:30]}: {result.get('message', 'Not enough data')}")
+    except Exception as e:
+        print(f"  ⚠️  Error training model for {campaign.title[:30]}: {str(e)}")
+
+# ============================================================================
+# 7. CREATE A/B TESTS - FIXED TIMEZONE
+# ============================================================================
+print("\n🧪 Creating A/B tests...")
+
 test_campaign = campaigns[0]
 ab_test, created = ABTest.objects.get_or_create(
     campaign=test_campaign,
     name='Headline Test - Summer Sale',
     defaults={
-        'description': 'Testing two different headlines to see which performs better',
+        'description': 'Testing two headlines for performance',
         'status': 'running',
         'success_metric': 'ctr',
         'min_sample_size': 1000,
-        'start_date': datetime.now() - timedelta(days=7)
+        'start_date': datetime_ago(days=7)  # FIXED: Use datetime_ago instead of now() - timedelta
     }
 )
 
 if created:
-    # Variation A: Control
     variation_a = ABTestVariation.objects.create(
         ab_test=ab_test,
         name='A',
@@ -384,7 +400,6 @@ if created:
         spend=250
     )
     
-    # Variation B: Winner
     variation_b = ABTestVariation.objects.create(
         ab_test=ab_test,
         name='B',
@@ -395,23 +410,61 @@ if created:
     )
     
     print(f"✅ Created A/B test: {ab_test.name}")
-    print(f"   Variation A: {variation_a.ctr}% CTR, {variation_a.conversion_rate}% Conv Rate")
-    print(f"   Variation B: {variation_b.ctr}% CTR, {variation_b.conversion_rate}% Conv Rate (WINNER)")
+    print(f"   Variation A: {variation_a.ctr}% CTR")
+    print(f"   Variation B: {variation_b.ctr}% CTR (WINNER +37.6%)")
 
 # ============================================================================
-# 7. ADD TEAM COMMENTS
+# 8. CREATE REPORT SCHEDULES - FIXED TIMEZONE
+# ============================================================================
+print("\n📅 Creating automated report schedules...")
+
+report_schedules = [
+    {
+        'name': 'Weekly Performance Report',
+        'frequency': 'weekly',
+        'format': 'email',
+        'email_recipients': ['demo@advision.com', 'team@advision.com']
+    },
+    {
+        'name': 'Monthly Executive Summary',
+        'frequency': 'monthly',
+        'format': 'pdf',
+        'email_recipients': ['admin@advision.com']
+    }
+]
+
+for sched_data in report_schedules:
+    schedule, created = ReportSchedule.objects.get_or_create(
+        user=demo_user,
+        name=sched_data['name'],
+        defaults={
+            'frequency': sched_data['frequency'],
+            'format': sched_data['format'],
+            'email_recipients': sched_data['email_recipients'],
+            'is_active': True,
+            'next_run': datetime_from_now(days=1)  # FIXED: Use datetime_from_now instead of now() + timedelta
+        }
+    )
+    
+    if created:
+        schedule.include_campaigns.set(campaigns[:3])
+        print(f"✅ Created report: {sched_data['name']} ({sched_data['frequency']})")
+
+# ============================================================================
+# 9. ADD TEAM COMMENTS - NO MANUAL created_at
 # ============================================================================
 print("\n💬 Adding team collaboration comments...")
 
 comments_data = [
-    ("Summer Sale campaign is crushing it! Consider scaling budget by 25%.", campaigns[0]),
-    ("Instagram engagement is phenomenal. Let's replicate this strategy.", campaigns[0]),
-    ("Black Friday campaign needs work. CTR is below 2%. Testing new creatives.", campaigns[3]),
-    ("B2B LinkedIn campaign stable. May want to test video content next.", campaigns[4]),
-    ("YouTube campaign performing well. Increasing daily budget tomorrow.", campaigns[2]),
+    ("Summer Sale crushing it! ML predicts 15% growth next week. Scale budget by 25%.", campaigns[0]),
+    ("Instagram engagement phenomenal. A/B test shows Variation B wins +37.6%.", campaigns[0]),
+    ("Black Friday needs work. CTR below 2%. Running predictive analysis.", campaigns[3]),
+    ("B2B campaign stable. Model accuracy 87%. Consider video content.", campaigns[4]),
+    ("YouTube high performer. Predicted conversions: 450+ next week.", campaigns[2]),
 ]
 
 for message, campaign in comments_data:
+    # DON'T set created_at manually - let Django auto-create it
     comment, created = Comment.objects.get_or_create(
         campaign=campaign,
         user=demo_user,
@@ -421,72 +474,62 @@ for message, campaign in comments_data:
         print(f"  ✅ Added comment to {campaign.title[:40]}...")
 
 # ============================================================================
-# SUMMARY & VERIFICATION
+# SUMMARY
 # ============================================================================
 print("\n" + "=" * 70)
-print("🎉 DEMO SETUP COMPLETE!")
+print("🎉 COMPLETE DEMO SETUP - ALL FEATURES!")
 print("=" * 70)
 
 print("\n📋 DEMO CREDENTIALS:")
 print("-" * 70)
 for user_data in demo_users:
-    print(f"Email: {user_data['email']}")
-    print(f"Password: {user_data['password']}")
-    print(f"Role: {user_data['role']}")
-    print("-" * 70)
+    print(f"Email: {user_data['email']:<30} Password: {user_data['password']}")
+print("-" * 70)
 
 print("\n📊 DEMO DATA SUMMARY:")
 total_campaigns = Campaign.objects.filter(user=demo_user).count()
 total_ads = AdContent.objects.filter(campaign__user=demo_user).count()
 total_analytics = DailyAnalytics.objects.filter(campaign__user=demo_user).count()
 total_api_keys = UserAPIKey.objects.filter(user=demo_user).count()
+total_predictions = Prediction.objects.filter(model__user=demo_user).count()
+total_models = PredictiveModel.objects.filter(user=demo_user, is_active=True).count()
+total_ab_tests = ABTest.objects.filter(campaign__user=demo_user).count()
+total_schedules = ReportSchedule.objects.filter(user=demo_user).count()
 
-print(f"✅ {total_campaigns} Campaigns (varied performance levels)")
-print(f"✅ {total_ads} Ad Copy variations")
-print(f"✅ {total_analytics} Days of analytics data")
-print(f"✅ {total_api_keys} API Keys (all verified)")
-print(f"✅ 1 Active A/B Test with clear winner")
+print(f"✅ {total_campaigns} Campaigns (varied performance)")
+print(f"✅ {total_ads} Ad variations")
+print(f"✅ {total_analytics} Days of analytics")
+print(f"✅ {total_api_keys} Verified API keys")
+print(f"✅ {total_models} Trained ML models")
+print(f"✅ {total_predictions} AI predictions")
+print(f"✅ {total_ab_tests} Active A/B tests")
+print(f"✅ {total_schedules} Report schedules")
 print(f"✅ {len(comments_data)} Team comments")
 
-print("\n📈 PERFORMANCE BREAKDOWN:")
-high_performers = [c for c in campaigns if c.performance_level == 'high']
-medium_performers = [c for c in campaigns if c.performance_level == 'medium']
-low_performers = [c for c in campaigns if c.performance_level == 'low']
+print("\n🤖 MACHINE LEARNING FEATURES:")
+print(f"   📊 Predictive Analytics: {total_models} models trained")
+print(f"   🎯 Next-week predictions ready for {total_models} campaigns")
+print(f"   📈 Linear regression with {total_analytics} data points")
+print(f"   🧪 A/B testing with statistical significance")
+print(f"   💡 Budget optimization recommendations")
 
-print(f"   🔥 High Performers: {len(high_performers)} campaigns (CTR 4-8%)")
-print(f"   📊 Medium Performers: {len(medium_performers)} campaigns (CTR 2.5-4%)")
-print(f"   ⚠️  Low Performers: {len(low_performers)} campaigns (CTR 1-2.5%)")
-
-print("\n💡 FEATURES TO DEMONSTRATE:")
-print("   1. Dashboard - Real metrics with growth trends")
-print("   2. Campaign Analytics - 45 days of detailed data")
-print("   3. Audience Insights - Real engagement patterns")
-print("   4. Weekly Reports - Actionable recommendations")
-print("   5. A/B Testing - Live test with statistical significance")
-print("   6. API Keys - All verified and ready")
-print("   7. Performance Comparison - High vs Low performers")
-print("   8. Trend Analysis - Growth/decline patterns")
-print("   9. Budget Optimization - ROAS calculations")
-print("   10. Team Collaboration - Comments and insights")
+print("\n💡 ALL FEATURES AVAILABLE:")
+print("   1. ✅ Dashboard - Real-time metrics")
+print("   2. ✅ Campaign Analytics - 45 days history")
+print("   3. ✅ Audience Insights - Engagement patterns")
+print("   4. ✅ Weekly Reports - AI recommendations")
+print("   5. ✅ A/B Testing - Statistical analysis")
+print("   6. ✅ API Keys - All verified")
+print("   7. ✅ Predictive Analytics - ML models trained")
+print("   8. ✅ Budget Optimization - ROAS & ROI")
+print("   9. ✅ Report Scheduling - Automated delivery")
+print("   10. ✅ Team Collaboration - Comments")
 
 print("\n🎯 TEST SCENARIOS:")
-print("   📌 High Performer: 'Summer Sale 2024' - Use for scaling demos")
-print("   📌 Low Performer: 'Holiday Special' - Use for optimization demos")
-print("   📌 Recent Campaign: 'Tech Product Demo' - Use for real-time tracking")
-print("   📌 A/B Test: Check 'Headline Test' for winner identification")
+print("   📌 Predictive: '/api/predictive/predict/?campaign_id=<ID>'")
+print("   📌 Budget: '/api/predictive/budget/'")
+print("   📌 A/B Test: '/api/ab-tests/<ID>/analyze/'")
+print("   📌 Train Model: '/api/predictive/train/' (POST)")
 
-print("\n🚀 READY TO DEMO!")
-print("\n⚠️  NOTE: All data is demo data with realistic patterns")
-print("    Features will show meaningful insights and recommendations!")
-print("\n🎬 Start your servers: python manage.py runserver")
+print("\n🚀 READY FOR FULL DEMO!")
 print("=" * 70)
-
-# to delete the data
-# Delete the database file
-# rm db.sqlite3
-
-# Recreate database
-# python manage.py migrate
-
-# Create your superuser
-# python manage.py createsuperuser

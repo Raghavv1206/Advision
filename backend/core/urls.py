@@ -33,6 +33,7 @@ urlpatterns = [
     # Advanced Features
     path('audience/insights/', views.AudienceInsightsView.as_view(), name='audience-insights'),
     path('reports/weekly/', views.WeeklyReportView.as_view(), name='weekly-report'),
+     path('reports/weekly/pdf/', views.GenerateWeeklyReportPDFView.as_view(), name='weekly-report-pdf'),
     path('preview/ad/', views.AdPreviewView.as_view(), name='ad-preview'),
     
     # User Profile

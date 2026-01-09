@@ -10,11 +10,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 # ============================================================================
+# ADD THESE 2 LINES HERE - CRITICAL FOR ALLAUTH
+# ============================================================================
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_AUTHENTICATION_METHOD = 'email'  # ADD THIS LINE
+ACCOUNT_EMAIL_REQUIRED = True 
+
+# ============================================================================
 # CORE SETTINGS
 # ============================================================================
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = True
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+# Backend host configuration
+BACKEND_HOST = os.getenv('BACKEND_HOST', 'localhost')
+
+# Parse additional hosts from environment (comma-separated)
+ADDITIONAL_HOSTS = os.getenv('ADDITIONAL_HOSTS', '').split(',')
+ADDITIONAL_HOSTS = [host.strip() for host in ADDITIONAL_HOSTS if host.strip()]
+
+# Combine all allowed hosts
+ALLOWED_HOSTS = [
+    BACKEND_HOST,
+    'localhost',
+    '127.0.0.1',
+] + ADDITIONAL_HOSTS
 
 # ============================================================================
 # AUTHENTICATION
@@ -152,13 +173,47 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ============================================================================
-# CORS SETTINGS
+# FRONTEND URL CONFIGURATION (FROM ENV VARIABLE)
 # ============================================================================
-CORS_ALLOWED_ORIGINS = [
+# Primary frontend URL from environment variable
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+
+# Additional allowed origins for development
+ADDITIONAL_FRONTEND_URLS = os.getenv('ADDITIONAL_FRONTEND_URLS', '').split(',')
+ADDITIONAL_FRONTEND_URLS = [url.strip() for url in ADDITIONAL_FRONTEND_URLS if url.strip()]
+
+# Default development URLs
+DEFAULT_DEV_URLS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+# Combine all frontend URLs
+ALL_FRONTEND_URLS = list(set([FRONTEND_URL] + ADDITIONAL_FRONTEND_URLS + DEFAULT_DEV_URLS))
+
+# ============================================================================
+# CORS SETTINGS
+# ============================================================================
+CORS_ALLOWED_ORIGINS = ALL_FRONTEND_URLS
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_EXPOSE_HEADERS = [
+    'Content-Disposition',  # ✅ CRITICAL for PDF downloads
+    'Content-Type',
+    'Content-Length',
+]
 
 # ============================================================================
 # REST FRAMEWORK & JWT
@@ -186,9 +241,8 @@ SIMPLE_JWT = {
 SITE_ID = 1
 
 ACCOUNT_EMAIL_VERIFICATION = 'none'
-ACCOUNT_LOGIN_METHODS = {'email'}
+# ACCOUNT_LOGIN_METHODS = {'email'}  ← REMOVE THIS LINE (not supported in 0.57.2)
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_ADAPTER = 'core.adapters.CustomAccountAdapter'
 
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -232,6 +286,9 @@ SOCIALACCOUNT_PROVIDERS = {
 # ============================================================================
 GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
 GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+
+# OAuth Redirect URI (uses FRONTEND_URL)
+GOOGLE_OAUTH_REDIRECT_URI = f"{FRONTEND_URL}/auth/google/callback"
 
 # ============================================================================
 # AI API KEYS (OpenRouter & Stability AI)

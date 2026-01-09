@@ -5,11 +5,15 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.utils import timezone
 from django.utils import timezone as django_timezone
+# from core.utils.timezone_utils import now
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from .managers import CustomUserManager
 from cryptography.fernet import Fernet
 import base64
+import logging
+
+logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------
 # USER MODEL
@@ -28,7 +32,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-    date_joined = models.DateTimeField(default=timezone.now)
+    date_joined = models.DateTimeField(auto_now_add=True)
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -78,7 +82,7 @@ class AdContent(models.Model):
     text = models.TextField()
     tone = models.CharField(max_length=20, choices=TONE_CHOICES)
     platform = models.CharField(max_length=20, choices=Campaign.PLATFORM_CHOICES)
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
     
     # Performance tracking
     views = models.IntegerField(default=0)
@@ -109,7 +113,7 @@ class ImageAsset(models.Model):
     cloudinary_public_id = models.CharField(max_length=255, blank=True)  # For deletion
     
     prompt = models.TextField(blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
     impressions = models.IntegerField(default=0)
     clicks = models.IntegerField(default=0)
 
@@ -616,39 +620,68 @@ class UserAPIKey(models.Model):
             self.error_message = str(e)
             return False
         
-# ============================================================================
-# AUTO-UPDATE ANALYTICS SUMMARY - IMPROVED
+#  ============================================================================
+# IMPROVED SIGNALS - PRODUCTION READY
 # ============================================================================
 
-@receiver(post_save, sender='core.Campaign')
-def create_analytics_summary(sender, instance, created, **kwargs):
-    """Auto-create analytics summary when campaign is created"""
-    if created:
-        # Use get_or_create to avoid duplicates
-        CampaignAnalyticsSummary.objects.get_or_create(campaign=instance)
-        print(f"✅ Created analytics summary for campaign: {instance.title}")
-
-@receiver(post_save, sender='core.DailyAnalytics')
-def update_campaign_summary(sender, instance, **kwargs):
-    """Auto-update campaign summary when daily analytics change"""
+@receiver(post_save, sender=Campaign)
+def ensure_analytics_summary(sender, instance, created, **kwargs):
+    """
+    ALWAYS ensure analytics summary exists when campaign is created/updated.
+    This is critical for weekly reports and analytics.
+    """
     try:
-        summary, created = CampaignAnalyticsSummary.objects.get_or_create(
+        summary, summary_created = CampaignAnalyticsSummary.objects.get_or_create(
+            campaign=instance
+        )
+        
+        if summary_created:
+            logger.info(f"✅ Created analytics summary for campaign: {instance.title}")
+            # Initialize with zeros
+            summary.update_metrics()
+            summary.save()
+        elif created:
+            # Campaign just created, ensure summary is fresh
+            summary.update_metrics()
+            summary.save()
+            logger.info(f"✅ Initialized analytics for new campaign: {instance.title}")
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to create/update summary for {instance.title}: {e}")
+        # Don't raise - we don't want to block campaign creation
+
+@receiver(post_save, sender=DailyAnalytics)
+def update_campaign_summary_on_analytics_change(sender, instance, created, **kwargs):
+    """
+    Update campaign summary whenever daily analytics are saved.
+    This keeps performance_score up-to-date for weekly reports.
+    """
+    try:
+        summary, summary_created = CampaignAnalyticsSummary.objects.get_or_create(
             campaign=instance.campaign
         )
         summary.update_metrics()
+        summary.save()
+        
         if created:
-            print(f"✅ Created summary for campaign: {instance.campaign.title}")
+            logger.info(f"✅ Updated summary after new analytics for: {instance.campaign.title}")
         else:
-            print(f"✅ Updated summary for campaign: {instance.campaign.title}")
+            logger.debug(f"✅ Updated summary after analytics edit for: {instance.campaign.title}")
+            
     except Exception as e:
-        print(f"❌ Error updating summary: {e}")
+        logger.error(f"❌ Failed to update summary for {instance.campaign.title}: {e}")
+        # Don't raise - we don't want to block analytics creation
 
-@receiver(post_delete, sender='core.DailyAnalytics')
-def update_summary_on_delete(sender, instance, **kwargs):
-    """Update summary when analytics are deleted"""
+@receiver(post_delete, sender=DailyAnalytics)
+def update_summary_on_analytics_delete(sender, instance, **kwargs):
+    """
+    Update summary when analytics are deleted
+    """
     try:
         if hasattr(instance.campaign, 'analytics_summary'):
-            instance.campaign.analytics_summary.update_metrics()
-            print(f"✅ Updated summary after deletion for: {instance.campaign.title}")
+            summary = instance.campaign.analytics_summary
+            summary.update_metrics()
+            summary.save()
+            logger.info(f"✅ Updated summary after analytics deletion for: {instance.campaign.title}")
     except Exception as e:
-        print(f"❌ Error updating summary on delete: {e}")
+        logger.error(f"❌ Failed to update summary on delete: {e}")

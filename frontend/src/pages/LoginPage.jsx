@@ -1,50 +1,15 @@
 // frontend/src/pages/LoginPage.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import apiClient from "../api/client";
 import toast from "react-hot-toast";
 import GoogleLoginButton from "../components/GoogleLoginButton";
 
 export default function LoginPage() {
-  const unicornRef = useRef(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  // 🌀 Initialize Unicorn background (no loader)
-  useEffect(() => {
-    const wrapper = unicornRef.current;
-    if (wrapper && !wrapper.querySelector("[data-us-project]")) {
-      const projectDiv = document.createElement("div");
-      projectDiv.setAttribute("data-us-project", "p4VdxnnHjOL82ic0CzsJ");
-      Object.assign(projectDiv.style, {
-        position: "absolute",
-        top: "0",
-        left: "0",
-        width: "100vw",
-        height: "100vh",
-        overflow: "hidden",
-        margin: "0",
-        padding: "0",
-      });
-      wrapper.appendChild(projectDiv);
-
-      const script = document.createElement("script");
-      script.type = "text/javascript";
-      script.src =
-        "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v1.4.34/dist/unicornStudio.umd.js";
-
-      script.onload = () => {
-        if (!window.UnicornStudio?.isInitialized) {
-          window.UnicornStudio = { isInitialized: true };
-          window.UnicornStudio.init?.();
-        }
-      };
-
-      (document.head || document.body).appendChild(script);
-    }
-  }, []);
 
   // ✨ Login Logic
   const handleSubmit = async (e) => {
@@ -85,21 +50,6 @@ export default function LoginPage() {
         overflow: "hidden",
       }}
     >
-      {/* 🌀 Unicorn Background */}
-      <div
-        ref={unicornRef}
-        className="absolute inset-0 w-full h-full"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          overflow: "hidden",
-          zIndex: 0,
-        }}
-      ></div>
-
       {/* 🌐 Navbar */}
       <header
         className="absolute top-0 left-0 right-0 z-20 flex justify-between items-center px-9 py-3

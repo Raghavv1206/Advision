@@ -14,9 +14,10 @@ import {
   Legend,
   ResponsiveContainer,
   LineChart,
-  Line
+  Line,
 } from "recharts";
-import { TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+
+import { TrendingUp, TrendingDown, AlertCircle, Brain, Eye, Users, PieChart as PieChartIcon, Bot} from "lucide-react";
 
 export default function AudienceInsightsPage() {
   const [campaigns, setCampaigns] = useState([]);
@@ -92,12 +93,14 @@ export default function AudienceInsightsPage() {
       <div className="flex flex-col sm:flex-row justify-between gap-4 sm:items-center mb-10">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold tracking-wide flex items-center gap-2">
-            🧠 Audience Insights
+            <Brain className="w-9 h-9 text-[#a88fd8]" />
+            Audience Insights
           </h1>
           <p className="text-gray-400 text-sm md:text-base mt-1">
             Understand your audience and improve ad performance
           </p>
         </div>
+
 
         <div className="w-full sm:w-64">
           <select
@@ -125,69 +128,92 @@ export default function AudienceInsightsPage() {
           {/* Summary Cards with Trend */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
             <div className="p-6 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg hover:shadow-2xl transition-all duration-300">
-              <p className="text-sm opacity-80">Total Reach</p>
-              <p className="text-3xl font-bold mt-1">{insights.total_reach?.toLocaleString() || 0}</p>
-              <p className="text-xs opacity-75 mt-2">Unique impressions</p>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-sm opacity-80">Total Reach</p>
+                  <p className="text-3xl font-bold mt-1">{insights.total_reach?.toLocaleString() || 0}</p>
+                  <p className="text-xs opacity-75 mt-2">Unique impressions</p>
+                </div>
+                <div className="p-3 bg-white/20 rounded-full">
+                  <Eye className="w-6 h-6 text-white" />
+                </div>
+              </div>
             </div>
 
             <div className="p-6 rounded-xl bg-gradient-to-br from-green-500 to-green-600 shadow-lg hover:shadow-2xl transition-all duration-300">
-              <p className="text-sm opacity-80">Engaged Users</p>
-              <p className="text-3xl font-bold mt-1">{insights.engaged_users?.toLocaleString() || 0}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <p className="text-xs opacity-75">Users who interacted</p>
-                {insights.engagement_trend === 'Increasing' ? (
-                  <span className="flex items-center text-xs text-green-200">
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    {insights.engagement_change}
-                  </span>
-                ) : (
-                  <span className="flex items-center text-xs text-red-200">
-                    <TrendingDown className="w-3 h-3 mr-1" />
-                    {insights.engagement_change}
-                  </span>
-                )}
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-sm opacity-80">Engaged Users</p>
+                  <p className="text-3xl font-bold mt-1">{insights.engaged_users?.toLocaleString() || 0}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <p className="text-xs opacity-75">Users who interacted</p>
+                    {insights.engagement_trend === 'Increasing' ? (
+                      <span className="flex items-center text-xs text-green-200">
+                        <TrendingUp className="w-3 h-3 mr-1" />
+                        {insights.engagement_change}
+                      </span>
+                    ) : (
+                      <span className="flex items-center text-xs text-red-200">
+                        <TrendingDown className="w-3 h-3 mr-1" />
+                        {insights.engagement_change}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white/20 rounded-full">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
               </div>
             </div>
 
             <div className="p-6 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg hover:shadow-2xl transition-all duration-300">
-              <p className="text-sm opacity-80">Engagement Rate</p>
-              <p className="text-3xl font-bold mt-1">{insights.engagement_rate || 0}%</p>
-              <p className="text-xs opacity-75 mt-2">
-                {insights.engagement_rate >= 5 ? '🔥 Excellent!' : 
-                 insights.engagement_rate >= 3 ? '✅ Good' : 
-                 '⚠️ Needs improvement'}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-sm opacity-80">Engagement Rate</p>
+                  <p className="text-3xl font-bold mt-1">{insights.engagement_rate || 0}%</p>
+                  <p className="text-xs opacity-75 mt-2">
+                    {insights.engagement_rate >= 5 ? '🔥 Excellent!' :
+                      insights.engagement_rate >= 3 ? '✅ Good' :
+                        '⚠️ Needs improvement'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-white/20 rounded-full">
+                  <PieChartIcon className="w-6 h-6 text-white" />
+                </div>
+              </div>
             </div>
           </div>
+
 
           {/* AI Recommendations */}
           {insights.recommendations?.length > 0 && (
             <div className="p-6 rounded-xl mb-10 bg-black/30 border border-white/10 backdrop-blur-lg">
-              <h2 className="text-lg md:text-xl font-semibold text-[#a88fd8] mb-4 flex items-center gap-2">
-                🤖 AI-Powered Recommendations
-              </h2>
+              <h2 className="text-xl font-semibold text-[#a88fd8] mb-6 flex items-center gap-2">
+            <Bot className="w-7 h-7 text-[#a88fd8]" />
+            AI-Powered Recommendations
+          </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {insights.recommendations.map((rec, index) => (
                   <div
                     key={index}
-                    className={`p-4 rounded-xl border-l-4 ${
-                      rec.priority === "high"
-                        ? "border-red-500 bg-red-500/10"
-                        : rec.priority === "medium"
+                    className={`p-4 rounded-xl border-l-4 ${rec.priority === "high"
+                      ? "border-red-500 bg-red-500/10"
+                      : rec.priority === "medium"
                         ? "border-yellow-400 bg-yellow-400/10"
                         : "border-blue-400 bg-blue-400/10"
-                    }`}
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          rec.priority === "high"
-                            ? "bg-red-500/20 text-red-300"
-                            : rec.priority === "medium"
+                        className={`px-2 py-1 text-xs rounded-full ${rec.priority === "high"
+                          ? "bg-red-500/20 text-red-300"
+                          : rec.priority === "medium"
                             ? "bg-yellow-400/20 text-yellow-200"
                             : "bg-blue-400/20 text-blue-200"
-                        }`}
+                          }`}
                       >
                         {rec.priority}
                       </span>
@@ -224,12 +250,12 @@ export default function AudienceInsightsPage() {
                     <CartesianGrid stroke="#2c2c2c" strokeDasharray="3 3" />
                     <XAxis dataKey="range" stroke="#a1a1aa" />
                     <YAxis stroke="#a1a1aa" />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "#1e1e1e", 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1e1e1e",
                         border: "1px solid #a88fd8",
                         borderRadius: "8px"
-                      }} 
+                      }}
                     />
                     <Bar dataKey="percentage" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
                   </BarChart>
@@ -238,12 +264,11 @@ export default function AudienceInsightsPage() {
                   {insights.age_groups.map((age, i) => (
                     <div key={i} className="text-xs text-gray-400 flex justify-between">
                       <span>{age.range}</span>
-                      <span className={`${
-                        age.engagement === 'Very High' ? 'text-green-400' :
+                      <span className={`${age.engagement === 'Very High' ? 'text-green-400' :
                         age.engagement === 'High' ? 'text-blue-400' :
-                        age.engagement === 'Medium' ? 'text-yellow-400' :
-                        'text-gray-500'
-                      }`}>
+                          age.engagement === 'Medium' ? 'text-yellow-400' :
+                            'text-gray-500'
+                        }`}>
                         {age.engagement}
                       </span>
                     </div>
@@ -267,18 +292,18 @@ export default function AudienceInsightsPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
-                      label={({type, percentage}) => `${type}: ${percentage}%`}
+                      label={({ type, percentage }) => `${type}: ${percentage}%`}
                     >
                       {insights.gender.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: "#1e1e1e", 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1e1e1e",
                         border: "1px solid #a88fd8",
                         borderRadius: "8px"
-                      }} 
+                      }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -334,15 +359,14 @@ export default function AudienceInsightsPage() {
                     </div>
 
                     <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        t.engagement === "Very High"
-                          ? "bg-green-500/20 text-green-300"
-                          : t.engagement === "High"
+                      className={`px-3 py-1 rounded-full text-sm ${t.engagement === "Very High"
+                        ? "bg-green-500/20 text-green-300"
+                        : t.engagement === "High"
                           ? "bg-blue-500/20 text-blue-300"
                           : t.engagement === "Medium"
-                          ? "bg-yellow-500/20 text-yellow-200"
-                          : "bg-gray-500/20 text-gray-300"
-                      }`}
+                            ? "bg-yellow-500/20 text-yellow-200"
+                            : "bg-gray-500/20 text-gray-300"
+                        }`}
                     >
                       {t.engagement}
                     </span>

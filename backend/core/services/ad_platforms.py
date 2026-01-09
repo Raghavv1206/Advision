@@ -4,7 +4,8 @@ Ad Platform Integration Services
 Handles Google Ads, Facebook Ads API integration using User's own API keys
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
+from core.utils.timezone_utils import now
 from django.conf import settings
 from decimal import Decimal
 
@@ -448,13 +449,13 @@ class AdPlatformSyncService:
                         defaults={
                             'platform': api_key.api_type.split('_')[0],
                             'description': f"Synced from {platform_name}",
-                            'start_date': datetime.now().date(),
-                            'end_date': datetime.now().date() + timedelta(days=30),
+                            'start_date': now().date(),
+                            'end_date': now().date() + timedelta(days=30),
                         }
                     )
                     
                     # Fetch detailed metrics
-                    end_date = datetime.now().date()
+                    end_date = now().date()
                     start_date = end_date - timedelta(days=30)
                     
                     daily_metrics = service.get_campaign_metrics(
@@ -538,7 +539,7 @@ class AdPlatformSyncService:
                 )
                 
                 if synced_campaign.local_campaign:
-                    end_date = datetime.now().date()
+                    end_date = now().date()
                     start_date = end_date - timedelta(days=30)
                     
                     daily_metrics = service.get_campaign_metrics(
@@ -565,7 +566,7 @@ class AdPlatformSyncService:
                 synced_count += 1
             
             connection.status = 'connected'
-            connection.last_sync = datetime.now()
+            connection.last_sync = now()
             connection.error_message = ''
             connection.save()
             

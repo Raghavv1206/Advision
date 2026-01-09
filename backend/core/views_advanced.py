@@ -11,7 +11,7 @@ from .serializers import (
 )
 from .services.ad_platforms import AdPlatformSyncService, GoogleAdsService, FacebookAdsService
 from .services.ab_testing import ABTestingService
-from datetime import datetime
+from core.utils.timezone_utils import now
 
 # ============================================================================
 # AD PLATFORM CONNECTIONS
@@ -46,7 +46,7 @@ class ConnectGoogleAdsView(APIView):
             
             connection.status = 'connected'
             connection.account_name = f"Google Ads Account {account_id}"
-            connection.last_sync = datetime.now()
+            connection.last_sync = now()
             connection.save()
             
             return Response({
@@ -94,7 +94,7 @@ class ConnectFacebookAdsView(APIView):
             
             connection.status = 'connected'
             connection.account_name = f"Facebook Ad Account {account_id}"
-            connection.last_sync = datetime.now()
+            connection.last_sync = now()
             connection.save()
             
             return Response({
@@ -226,7 +226,7 @@ class StartABTestView(APIView):
                 )
             
             ab_test.status = 'running'
-            ab_test.start_date = datetime.now()
+            ab_test.start_date = now()
             ab_test.save()
             
             return Response({

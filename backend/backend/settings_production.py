@@ -28,12 +28,20 @@ REST_AUTH = {
 # ============================================================================
 DEBUG = False
 
+# Backend host configuration
+BACKEND_HOST = os.getenv('BACKEND_HOST', 'advision-backend.onrender.com')
+
+# Parse additional hosts from environment (comma-separated)
+ADDITIONAL_HOSTS = os.getenv('ADDITIONAL_HOSTS', '').split(',')
+ADDITIONAL_HOSTS = [host.strip() for host in ADDITIONAL_HOSTS if host.strip()]
+
+# Combine all allowed hosts
 ALLOWED_HOSTS = [
-    'advision-backend.onrender.com',
-    '.onrender.com',
+    BACKEND_HOST,
+    '.onrender.com',  # Allow all Render subdomains
     'localhost',
     '127.0.0.1',
-]
+] + ADDITIONAL_HOSTS
 
 # Security settings
 SECURE_SSL_REDIRECT = True
@@ -74,15 +82,22 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
 # ============================================================================
-# CORS
+# FRONTEND URL CONFIGURATION (FROM ENV VARIABLE)
 # ============================================================================
+# Primary frontend URL from environment variable
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://advision-frontend.vercel.app')
 
-CORS_ALLOWED_ORIGINS = list(set([
-    FRONTEND_URL,
-    "https://advision-frontend.vercel.app",
-    "https://advision.vercel.app",
-]))
+# Additional allowed origins (for backwards compatibility)
+ADDITIONAL_FRONTEND_URLS = os.getenv('ADDITIONAL_FRONTEND_URLS', '').split(',')
+ADDITIONAL_FRONTEND_URLS = [url.strip() for url in ADDITIONAL_FRONTEND_URLS if url.strip()]
+
+# Combine all frontend URLs
+ALL_FRONTEND_URLS = [FRONTEND_URL] + ADDITIONAL_FRONTEND_URLS
+
+# ============================================================================
+# CORS CONFIGURATION
+# ============================================================================
+CORS_ALLOWED_ORIGINS = list(set(ALL_FRONTEND_URLS))
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -98,10 +113,8 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-CSRF_TRUSTED_ORIGINS = list(set([
-    FRONTEND_URL,
-    "https://advision-frontend.vercel.app",
-    "https://advision.vercel.app",
+# CSRF Trusted Origins
+CSRF_TRUSTED_ORIGINS = list(set(ALL_FRONTEND_URLS + [
     "https://advision-backend.onrender.com",
 ]))
 
@@ -110,6 +123,9 @@ CSRF_TRUSTED_ORIGINS = list(set([
 # ============================================================================
 GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
 GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
+
+# OAuth Redirect URI (uses FRONTEND_URL)
+GOOGLE_OAUTH_REDIRECT_URI = f"{FRONTEND_URL}/auth/google/callback"
 
 # ============================================================================
 # API ENCRYPTION KEY

@@ -1,7 +1,7 @@
 # backend/core/services/ab_testing.py - COMPLETE FILE
 import numpy as np
 from scipy import stats
-from datetime import datetime
+from core.utils.timezone_utils import now
 
 class ABTestingService:
     """Service for A/B testing analysis and management"""

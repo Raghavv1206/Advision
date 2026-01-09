@@ -106,7 +106,11 @@ export default function ProfilePage() {
             {profile.email.charAt(0).toUpperCase()}
           </div>
 
-          <h2 className="text-xl font-semibold">{profile.email}</h2>
+          <h2
+            className="text-xl font-semibold truncate max-w-full overflow-hidden"
+            title={profile.email}>
+            {profile.email}
+          </h2>
           <p className="text-sm text-gray-400 capitalize">
             {profile.role} Account
           </p>

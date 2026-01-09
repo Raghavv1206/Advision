@@ -10,6 +10,7 @@ import requests
 import base64
 import uuid
 import io
+from django.http import HttpResponse, FileResponse
 import os
 from datetime import datetime, timedelta
 import json
@@ -25,7 +26,11 @@ from dj_rest_auth.registration.views import SocialLoginView
 from decimal import Decimal
 from django.utils import timezone
 from core.utils.cloudinary_storage import CloudinaryStorage
-
+from django.views import View
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
@@ -122,13 +127,13 @@ class DashboardStatsView(APIView):
         # This week stats
         week_ago = today - timedelta(days=7)
         ads_this_week = AdContent.objects.filter(
-            campaign__user=user,
-            created_at__gte=week_ago
+        campaign__user=user,
+        created_at__date__gte=week_ago  # ✅ FIXED - use __date lookup
         ).count()
-        
+
         images_this_week = ImageAsset.objects.filter(
-            campaign__user=user,
-            created_at__gte=week_ago
+        campaign__user=user,
+        created_at__date__gte=week_ago  # ✅ FIXED
         ).count()
         
         # Platform distribution
@@ -1944,12 +1949,12 @@ class DashboardStatsView(APIView):
         week_ago = today - timedelta(days=7)
         ads_this_week = AdContent.objects.filter(
             campaign__user=user,
-            created_at__gte=week_ago
+            created_at__date__gte=week_ago 
         ).count()
         
         images_this_week = ImageAsset.objects.filter(
             campaign__user=user,
-            created_at__gte=week_ago
+            created_at__date__gte=week_ago
         ).count()
         
         # Platform distribution
@@ -2123,34 +2128,37 @@ class WeeklyReportView(APIView):
     
     def get(self, request):
         user = request.user
-        week_ago = datetime.now().date() - timedelta(days=7)
+        today = datetime.now().date()
+        week_ago = today - timedelta(days=7)
+        two_weeks_ago = week_ago - timedelta(days=7)
         
-        # REAL DATA: Count actual resources created
+        # REAL DATA: Count actual resources created this week
         campaigns_created = Campaign.objects.filter(
             user=user,
-            created_at__gte=week_ago
+            created_at__date__gte=week_ago
         ).count()
         
         ads_generated = AdContent.objects.filter(
             campaign__user=user,
-            created_at__gte=week_ago
+            created_at__date__gte=week_ago
         ).count()
         
         images_generated = ImageAsset.objects.filter(
             campaign__user=user,
-            created_at__gte=week_ago
+            created_at__date__gte=week_ago
         ).count()
         
         active_campaigns = Campaign.objects.filter(
             user=user,
             is_active=True,
-            end_date__gte=datetime.now().date()
+            end_date__gte=today
         ).count()
         
-        # REAL ANALYTICS: Get weekly performance
+        # REAL WEEKLY ANALYTICS
         weekly_analytics = DailyAnalytics.objects.filter(
             campaign__user=user,
-            date__gte=week_ago
+            date__gte=week_ago,
+            date__lte=today
         ).aggregate(
             total_impressions=Sum('impressions'),
             total_clicks=Sum('clicks'),
@@ -2158,110 +2166,297 @@ class WeeklyReportView(APIView):
             total_spend=Sum('spend')
         )
         
-        total_engagement = weekly_analytics['total_clicks'] or 0
-        total_impressions = weekly_analytics['total_impressions'] or 0
-        total_spend = float(weekly_analytics['total_spend'] or 0)
-        
-        # Calculate growth (compare to previous week)
-        two_weeks_ago = week_ago - timedelta(days=7)
-        previous_week = DailyAnalytics.objects.filter(
+        # PREVIOUS WEEK FOR COMPARISON
+        previous_week_analytics = DailyAnalytics.objects.filter(
             campaign__user=user,
             date__gte=two_weeks_ago,
             date__lt=week_ago
         ).aggregate(
-            prev_clicks=Sum('clicks')
+            prev_impressions=Sum('impressions'),
+            prev_clicks=Sum('clicks'),
+            prev_conversions=Sum('conversions'),
+            prev_spend=Sum('spend')
         )
         
-        prev_engagement = previous_week['prev_clicks'] or 1
-        engagement_growth = round(((total_engagement - prev_engagement) / prev_engagement) * 100, 1)
+        # Calculate metrics
+        total_impressions = weekly_analytics['total_impressions'] or 0
+        total_clicks = weekly_analytics['total_clicks'] or 0
+        total_conversions = weekly_analytics['total_conversions'] or 0
+        total_spend = float(weekly_analytics['total_spend'] or 0)
         
-        # REAL INSIGHTS: Calculate from actual data
-        top_campaign = Campaign.objects.filter(
-            user=user,
-            analytics_summary__isnull=False
-        ).order_by('-analytics_summary__total_clicks').first()
+        prev_impressions = previous_week_analytics['prev_impressions'] or 1
+        prev_clicks = previous_week_analytics['prev_clicks'] or 1
+        prev_conversions = previous_week_analytics['prev_conversions'] or 1
         
-        insights = {
-            'top_performing_platform': top_campaign.platform if top_campaign else 'N/A',
-            'total_impressions': total_impressions,
-            'total_clicks': total_engagement,
-            'total_spend': round(total_spend, 2),
-            'avg_ctr': round((total_engagement / total_impressions * 100), 2) if total_impressions > 0 else 0,
-            'engagement_trend': 'Increasing' if engagement_growth > 0 else 'Decreasing'
+        # Calculate growth rates
+        impression_growth = round(((total_impressions - prev_impressions) / prev_impressions) * 100, 1)
+        click_growth = round(((total_clicks - prev_clicks) / prev_clicks) * 100, 1)
+        conversion_growth = round(((total_conversions - prev_conversions) / prev_conversions) * 100, 1)
+        
+        # Calculate rates
+        avg_ctr = round((total_clicks / total_impressions * 100), 2) if total_impressions > 0 else 0
+        conversion_rate = round((total_conversions / total_clicks * 100), 2) if total_clicks > 0 else 0
+        
+        # ============================================================================
+        # FIX 1: PROPERLY GET TOP PERFORMING CAMPAIGN WITH NULL CHECK
+        # ============================================================================
+        try:
+            # First ensure all campaigns have summaries
+            user_campaigns = Campaign.objects.filter(user=user)
+            for campaign in user_campaigns:
+                summary, created = CampaignAnalyticsSummary.objects.get_or_create(
+                    campaign=campaign
+                )
+                if created or summary.performance_score == 0:
+                    summary.update_metrics()
+                    summary.save()
+            
+            # Now get top campaign with proper ordering
+            top_campaign = Campaign.objects.filter(
+                user=user,
+                analytics_summary__isnull=False
+            ).select_related('analytics_summary').order_by(
+                '-analytics_summary__performance_score'
+            ).first()
+            
+            # Get worst campaign for improvement suggestions
+            worst_campaign = Campaign.objects.filter(
+                user=user,
+                analytics_summary__isnull=False
+            ).select_related('analytics_summary').order_by(
+                'analytics_summary__performance_score'
+            ).first()
+            
+        except Exception as e:
+            print(f"Error getting top campaign: {e}")
+            top_campaign = None
+            worst_campaign = None
+        
+        # ============================================================================
+        # SAFE TOP CAMPAIGN DATA WITH NULL PROTECTION
+        # ============================================================================
+        top_campaign_data = {
+            'name': top_campaign.title if top_campaign else 'N/A',
+            'platform': top_campaign.platform if top_campaign else 'N/A',
+            'score': top_campaign.analytics_summary.performance_score if (top_campaign and hasattr(top_campaign, 'analytics_summary')) else 0
         }
         
-        # SMART RECOMMENDATIONS: Based on actual performance
-        recommendations = []
+        # REAL INSIGHTS from actual data
+        insights = {
+            'top_performing_platform': top_campaign.platform.title() if top_campaign else 'N/A',
+            'top_campaign_name': top_campaign_data['name'],  # FIXED: Now guaranteed to have value
+            'top_campaign_score': top_campaign_data['score'],
+            'total_impressions': total_impressions,
+            'total_clicks': total_clicks,
+            'total_conversions': total_conversions,
+            'total_spend': round(total_spend, 2),
+            'avg_ctr': avg_ctr,
+            'conversion_rate': conversion_rate,
+            'impression_growth': f"{'+' if impression_growth > 0 else ''}{impression_growth}%",
+            'click_growth': f"{'+' if click_growth > 0 else ''}{click_growth}%",
+            'conversion_growth': f"{'+' if conversion_growth > 0 else ''}{conversion_growth}%",
+            'engagement_trend': 'Increasing' if click_growth > 0 else 'Decreasing',
+            'roas': round((total_conversions * 50 / total_spend), 2) if total_spend > 0 else 0
+        }
         
-        # Performance-based recommendation
-        avg_ctr = insights['avg_ctr']
-        if avg_ctr < 2:
-            recommendations.append({
-                'category': 'Performance',
-                'priority': 'high',
-                'title': 'Improve Click-Through Rate',
-                'description': f'Your CTR is {avg_ctr}%. Industry average is 3-5%. Consider A/B testing different ad creatives.',
-                'action': 'Start A/B Test',
-                'impact': '+50% potential CTR increase'
-            })
-        elif avg_ctr > 5:
-            recommendations.append({
-                'category': 'Performance',
-                'priority': 'high',
-                'title': 'Excellent Performance - Scale Up',
-                'description': f'Your {avg_ctr}% CTR is above industry average. Consider increasing budget to maximize results.',
-                'action': 'Increase Budget',
-                'impact': '+100% potential reach'
-            })
+        # SMART RECOMMENDATIONS based on real performance
+        recommendations = self._generate_weekly_recommendations(
+            avg_ctr=avg_ctr,
+            conversion_rate=conversion_rate,
+            click_growth=click_growth,
+            total_spend=total_spend,
+            active_campaigns=active_campaigns,
+            ads_generated=ads_generated,
+            top_campaign=top_campaign,
+            worst_campaign=worst_campaign,
+            insights=insights
+        )
         
-        # Content recommendation
-        if ads_generated < 5:
-            recommendations.append({
-                'category': 'Content',
-                'priority': 'medium',
-                'title': 'Generate More Ad Variations',
-                'description': f'You created {ads_generated} ads this week. More variations improve A/B testing effectiveness.',
-                'action': 'Create 5 variations',
-                'impact': '+25% optimization potential'
-            })
-        
-        # Campaign recommendation
-        if active_campaigns == 0:
-            recommendations.append({
-                'category': 'Campaigns',
-                'priority': 'high',
-                'title': 'No Active Campaigns',
-                'description': 'You have no active campaigns running. Create a new campaign to start driving results.',
-                'action': 'Create Campaign',
-                'impact': 'Start generating ROI'
-            })
+        # ACTIONABLE NEXT STEPS
+        next_steps = self._generate_next_steps(
+            top_campaign=top_campaign,
+            worst_campaign=worst_campaign,
+            avg_ctr=avg_ctr,
+            ads_generated=ads_generated,
+            active_campaigns=active_campaigns
+        )
         
         return Response({
-            'period': 'Last 7 days',
+            'period': f'{week_ago.strftime("%b %d")} - {today.strftime("%b %d, %Y")}',
             'summary': {
                 'campaigns_created': campaigns_created,
                 'ads_generated': ads_generated,
                 'images_generated': images_generated,
                 'active_campaigns': active_campaigns,
-                'total_engagement': total_engagement,
-                'engagement_growth': f"{'+' if engagement_growth > 0 else ''}{engagement_growth}%"
+                'total_engagement': total_clicks,
+                'engagement_growth': insights['click_growth']
             },
             'insights': insights,
-            'recommendations': recommendations if recommendations else [{
-                'category': 'General',
-                'priority': 'low',
-                'title': 'Keep Up the Good Work',
-                'description': 'Your campaigns are performing well. Continue monitoring and optimizing.',
-                'action': 'View Analytics',
-                'impact': 'Maintain performance'
-            }],
-            'next_steps': [
-                f"Review top performing campaign: {top_campaign.title if top_campaign else 'N/A'}",
-                f"Analyze campaigns with CTR below {avg_ctr}%",
-                "Test new ad creatives with AI generator",
-                "Check budget allocation across platforms"
-            ]
+            'recommendations': recommendations,
+            'next_steps': next_steps,
+            'comparison_available': prev_clicks > 0,
+            # Add this for PDF generation
+            'can_generate_pdf': total_impressions > 0
         })
+    
+    def _generate_weekly_recommendations(self, avg_ctr, conversion_rate, click_growth, 
+                                        total_spend, active_campaigns, ads_generated,
+                                        top_campaign, worst_campaign, insights):
+        """Generate data-driven recommendations"""
+        recommendations = []
+        
+        # CTR Analysis
+        if avg_ctr < 2:
+            recommendations.append({
+                'category': 'Performance',
+                'priority': 'high',
+                'title': 'Improve Click-Through Rate',
+                'description': f'Your weekly CTR is {avg_ctr}%, which is below the 3-5% industry benchmark. Test new headlines and visuals.',
+                'action': 'A/B Test Creatives',
+                'impact': '+50-100% potential CTR increase',
+                'metric': 'CTR',
+                'current': f'{avg_ctr}%',
+                'target': '3-5%'
+            })
+        elif avg_ctr >= 5:
+            recommendations.append({
+                'category': 'Performance',
+                'priority': 'high',
+                'title': 'Excellent Performance - Scale Up',
+                'description': f'Your {avg_ctr}% CTR is outstanding! Scale your best campaigns to maximize results.',
+                'action': 'Increase Budget',
+                'impact': '+100-200% potential reach',
+                'metric': 'CTR',
+                'current': f'{avg_ctr}%',
+                'target': 'Maintain'
+            })
+        
+        # Conversion Rate Analysis
+        if conversion_rate < 5 and avg_ctr > 2:
+            recommendations.append({
+                'category': 'Optimization',
+                'priority': 'high',
+                'title': 'Optimize Conversion Funnel',
+                'description': f'You have good traffic ({avg_ctr}% CTR) but low conversions ({conversion_rate}%). Review landing pages.',
+                'action': 'Optimize Landing Page',
+                'impact': '+30-60% conversion increase',
+                'metric': 'Conversion Rate',
+                'current': f'{conversion_rate}%',
+                'target': '5-10%'
+            })
+        
+        # Growth Trend
+        if click_growth < -10:
+            recommendations.append({
+                'category': 'Engagement',
+                'priority': 'high',
+                'title': 'Reverse Declining Engagement',
+                'description': f'Engagement dropped {click_growth}% this week. Refresh ad creatives and review audience targeting.',
+                'action': 'Refresh Campaign',
+                'impact': 'Reverse negative trend',
+                'metric': 'Weekly Growth',
+                'current': f'{click_growth}%',
+                'target': '+10%'
+            })
+        elif click_growth > 20:
+            recommendations.append({
+                'category': 'Growth',
+                'priority': 'medium',
+                'title': 'Capitalize on Momentum',
+                'description': f'Strong {click_growth}% growth! Now is the time to increase investment and expand reach.',
+                'action': 'Scale Investment',
+                'impact': 'Maximize growth period',
+                'metric': 'Weekly Growth',
+                'current': f'{click_growth}%',
+                'target': 'Sustain'
+            })
+        
+        # Content Generation
+        if ads_generated < 5:
+            recommendations.append({
+                'category': 'Content',
+                'priority': 'medium',
+                'title': 'Increase Ad Variations',
+                'description': f'Only {ads_generated} ads created this week. More variations improve testing effectiveness.',
+                'action': 'Generate 5+ Variations',
+                'impact': '+25% optimization potential',
+                'metric': 'Content Volume',
+                'current': f'{ads_generated} ads',
+                'target': '10+ ads/week'
+            })
+        
+        # Budget Efficiency
+        if total_spend > 0 and insights['roas'] < 2:
+            recommendations.append({
+                'category': 'Budget',
+                'priority': 'high',
+                'title': 'Improve Return on Ad Spend',
+                'description': f'Current ROAS is {insights["roas"]}x. Review targeting and pause low-performing campaigns.',
+                'action': 'Optimize Budget Allocation',
+                'impact': '+50-100% ROAS improvement',
+                'metric': 'ROAS',
+                'current': f'{insights["roas"]}x',
+                'target': '3-5x'
+            })
+        
+        # Campaign Activity
+        if active_campaigns == 0:
+            recommendations.append({
+                'category': 'Campaigns',
+                'priority': 'high',
+                'title': 'Launch Active Campaigns',
+                'description': 'No active campaigns running. Create and launch campaigns to start generating results.',
+                'action': 'Create Campaign',
+                'impact': 'Begin generating ROI',
+                'metric': 'Active Campaigns',
+                'current': '0',
+                'target': '3-5'
+            })
+        
+        # Top Campaign Optimization
+        if top_campaign and hasattr(top_campaign, 'analytics_summary') and top_campaign.analytics_summary.performance_score > 70:
+            recommendations.append({
+                'category': 'Scaling',
+                'priority': 'medium',
+                'title': f'Scale Top Performer: {top_campaign.title}',
+                'description': f'This campaign has {top_campaign.analytics_summary.performance_score}/100 score. Allocate more budget.',
+                'action': 'Increase Budget by 25%',
+                'impact': '+30-50% additional reach',
+                'metric': 'Performance Score',
+                'current': f'{top_campaign.analytics_summary.performance_score}/100',
+                'target': 'Maximize'
+            })
+        
+        # Sort by priority
+        priority_order = {'high': 0, 'medium': 1, 'low': 2}
+        recommendations.sort(key=lambda x: priority_order.get(x['priority'], 3))
+        
+        return recommendations[:6]  # Return top 6
+    
+    def _generate_next_steps(self, top_campaign, worst_campaign, avg_ctr, 
+                            ads_generated, active_campaigns):
+        """Generate specific action items"""
+        steps = []
+        
+        if top_campaign:
+            steps.append(f"Review and scale best performer: {top_campaign.title}")
+        
+        if worst_campaign and hasattr(worst_campaign, 'analytics_summary') and worst_campaign.analytics_summary.performance_score < 50:
+            steps.append(f"Improve or pause low performer: {worst_campaign.title} ({worst_campaign.analytics_summary.performance_score}/100)")
+        
+        if avg_ctr < 3:
+            steps.append(f"Run A/B tests on headlines and visuals to improve {avg_ctr}% CTR")
+        
+        if ads_generated < 10:
+            steps.append(f"Generate {10 - ads_generated} more ad variations for testing")
+        
+        if active_campaigns < 3:
+            steps.append("Launch 2-3 new campaigns targeting different audiences")
+        
+        steps.append("Check audience insights for optimal posting times")
+        steps.append("Review budget allocation across all campaigns")
+        
+        return steps[:5]  # Return top 5
 
 # ============================================================================
 # NEW: Delete Image from Cloudinary
@@ -2399,4 +2594,315 @@ class UpdateImageView(APIView):
             return Response(
                 {"error": f"Failed to update image: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+# -------------------------------------------------------------------------------
+
+class GenerateWeeklyReportPDFView(View):
+    """
+    Generate weekly report PDF - Uses Django View to bypass DRF content negotiation
+    """
+    
+    @method_decorator(csrf_exempt)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+    
+    def post(self, request):
+        """Generate and return PDF as binary stream"""
+        
+        # Manual JWT authentication (since we're not using DRF APIView)
+        auth_header = request.headers.get('Authorization', '')
+        
+        if not auth_header.startswith('Bearer '):
+            return HttpResponse(
+                '{"error": "Authentication required"}',
+                status=401,
+                content_type='application/json'
+            )
+        
+        token = auth_header.replace('Bearer ', '')
+        
+        try:
+            # Authenticate with JWT
+            from rest_framework_simplejwt.tokens import AccessToken
+            access_token = AccessToken(token)
+            user_id = access_token['user_id']
+            
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+            
+        except Exception as e:
+            return HttpResponse(
+                f'{{"error": "Invalid authentication: {str(e)}"}}',
+                status=401,
+                content_type='application/json'
+            )
+        
+        try:
+            from reportlab.lib.pagesizes import letter
+            from reportlab.lib import colors
+            from reportlab.lib.units import inch
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.enums import TA_CENTER
+            from core.models import Campaign, AdContent, ImageAsset, DailyAnalytics, CampaignAnalyticsSummary
+            from core.utils.timezone_utils import now, format_datetime
+            
+            # Get report data
+            today = now().date()
+            week_ago = today - timedelta(days=7)
+            
+            # Ensure all campaigns have summaries
+            user_campaigns = Campaign.objects.filter(user=user)
+            for campaign in user_campaigns:
+                summary, created = CampaignAnalyticsSummary.objects.get_or_create(
+                    campaign=campaign
+                )
+                if created or summary.performance_score == 0:
+                    summary.update_metrics()
+                    summary.save()
+            
+            # Gather data
+            campaigns_created = Campaign.objects.filter(
+                user=user,
+                created_at__date__gte=week_ago
+            ).count()
+            
+            ads_generated = AdContent.objects.filter(
+                campaign__user=user,
+                created_at__date__gte=week_ago
+            ).count()
+            
+            images_generated = ImageAsset.objects.filter(
+                campaign__user=user,
+                created_at__date__gte=week_ago
+            ).count()
+            
+            active_campaigns = Campaign.objects.filter(
+                user=user,
+                is_active=True,
+                end_date__gte=today
+            ).count()
+            
+            # Get analytics
+            weekly_analytics = DailyAnalytics.objects.filter(
+                campaign__user=user,
+                date__gte=week_ago,
+                date__lte=today
+            ).aggregate(
+                total_impressions=Sum('impressions'),
+                total_clicks=Sum('clicks'),
+                total_conversions=Sum('conversions'),
+                total_spend=Sum('spend')
+            )
+            
+            total_impressions = weekly_analytics['total_impressions'] or 0
+            total_clicks = weekly_analytics['total_clicks'] or 0
+            total_conversions = weekly_analytics['total_conversions'] or 0
+            total_spend = float(weekly_analytics['total_spend'] or 0)
+            
+            avg_ctr = round((total_clicks / total_impressions * 100), 2) if total_impressions > 0 else 0
+            conversion_rate = round((total_conversions / total_clicks * 100), 2) if total_clicks > 0 else 0
+            roas = round((total_conversions * 50 / total_spend), 2) if total_spend > 0 else 0
+            
+            # Get top campaign
+            top_campaign = Campaign.objects.filter(
+                user=user,
+                analytics_summary__isnull=False
+            ).select_related('analytics_summary').order_by(
+                '-analytics_summary__performance_score'
+            ).first()
+            
+            # Create PDF in memory
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(
+                buffer, 
+                pagesize=letter,
+                topMargin=0.75*inch,
+                bottomMargin=0.75*inch,
+                leftMargin=0.75*inch,
+                rightMargin=0.75*inch
+            )
+            
+            story = []
+            styles = getSampleStyleSheet()
+            
+            # Custom styles
+            title_style = ParagraphStyle(
+                'Title',
+                parent=styles['Heading1'],
+                fontSize=24,
+                textColor=colors.HexColor('#3a3440'),
+                spaceAfter=6,
+                alignment=TA_CENTER,
+                fontName='Helvetica-Bold'
+            )
+            
+            subtitle_style = ParagraphStyle(
+                'Subtitle',
+                parent=styles['Normal'],
+                fontSize=11,
+                textColor=colors.grey,
+                spaceAfter=24,
+                alignment=TA_CENTER,
+            )
+            
+            heading_style = ParagraphStyle(
+                'Heading',
+                parent=styles['Heading2'],
+                fontSize=16,
+                textColor=colors.HexColor('#a88fd8'),
+                spaceAfter=12,
+                spaceBefore=18,
+                fontName='Helvetica-Bold'
+            )
+            
+            # Build PDF content
+            story.append(Paragraph("AdVision Weekly Report", title_style))
+            story.append(Paragraph(
+                f"Period: {week_ago.strftime('%b %d')} - {today.strftime('%b %d, %Y')}", 
+                subtitle_style
+            ))
+            story.append(Paragraph(f"Generated for: {user.email}", subtitle_style))
+            
+            # Summary Section
+            story.append(Paragraph("Weekly Summary", heading_style))
+            
+            summary_data = [
+                ['Metric', 'Value'],
+                ['Campaigns Created', str(campaigns_created)],
+                ['Ads Generated', str(ads_generated)],
+                ['Images Generated', str(images_generated)],
+                ['Active Campaigns', str(active_campaigns)],
+                ['Total Engagement', f"{total_clicks:,} clicks"],
+            ]
+            
+            summary_table = Table(summary_data, colWidths=[3*inch, 2.5*inch])
+            summary_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#a88fd8')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')]),
+            ]))
+            story.append(summary_table)
+            story.append(Spacer(1, 0.25*inch))
+            
+            # Analytics Section
+            story.append(Paragraph("Performance Analytics", heading_style))
+            
+            analytics_data = [
+                ['Metric', 'Value'],
+                ['Total Impressions', f"{total_impressions:,}"],
+                ['Total Clicks', f"{total_clicks:,}"],
+                ['Total Conversions', f"{total_conversions:,}"],
+                ['Total Spend', f"${total_spend:.2f}"],
+                ['Average CTR', f"{avg_ctr}%"],
+                ['Conversion Rate', f"{conversion_rate}%"],
+                ['ROAS', f"{roas}x"],
+            ]
+            
+            analytics_table = Table(analytics_data, colWidths=[3*inch, 2.5*inch])
+            analytics_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#a88fd8')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')]),
+            ]))
+            story.append(analytics_table)
+            story.append(Spacer(1, 0.25*inch))
+            
+            # Top Campaign
+            story.append(Paragraph("Top Performing Campaign", heading_style))
+            
+            if top_campaign:
+                campaign_data = [
+                    ['Campaign Name', top_campaign.title],
+                    ['Platform', top_campaign.platform.title()],
+                    ['Performance Score', f"{top_campaign.analytics_summary.performance_score}/100"],
+                ]
+            else:
+                campaign_data = [
+                    ['Status', 'No campaigns available'],
+                    ['Recommendation', 'Create campaigns to see performance data'],
+                ]
+            
+            campaign_table = Table(campaign_data, colWidths=[2.5*inch, 3*inch])
+            campaign_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f0f0f0')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ]))
+            story.append(campaign_table)
+            
+            # Footer
+            story.append(Spacer(1, 0.4*inch))
+            footer_style = ParagraphStyle(
+                'Footer',
+                parent=styles['Normal'],
+                fontSize=8,
+                textColor=colors.grey,
+                alignment=TA_CENTER,
+            )
+            story.append(Paragraph(
+                f"Generated on {format_datetime(now(), '%B %d, %Y at %I:%M %p')}",
+                footer_style
+            ))
+            story.append(Paragraph("© 2026 AdVision - AI Campaign Management", footer_style))
+            
+            # Build PDF
+            doc.build(story)
+            
+            # Get PDF bytes
+            pdf_bytes = buffer.getvalue()
+            buffer.close()
+            
+            # Create response with proper headers
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            
+            # Set headers for download
+            filename = f'advision_weekly_report_{today.strftime("%Y%m%d")}.pdf'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response['Content-Length'] = len(pdf_bytes)
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
+            # CRITICAL: Add CORS headers manually since we're not using DRF
+            response['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+            response['Access-Control-Allow-Credentials'] = 'true'
+            
+            return response
+            
+        except ImportError as e:
+            import traceback
+            print("Import Error:")
+            print(traceback.format_exc())
+            return HttpResponse(
+                f'{{"error": "ReportLab not installed: {str(e)}"}}',
+                status=500,
+                content_type='application/json'
+            )
+        except Exception as e:
+            import traceback
+            print("PDF Generation Error:")
+            print(traceback.format_exc())
+            return HttpResponse(
+                f'{{"error": "Failed to generate PDF: {str(e)}"}}',
+                status=500,
+                content_type='application/json'
             )
